@@ -4,17 +4,18 @@ import {
   MapPin, 
   Clock, 
   Users, 
-  Navigation, 
   Settings, 
   Sliders, 
   User, 
-  CheckCircle, 
-  XCircle, 
   AlertTriangle,
   Play,
   RotateCcw,
   Sparkles,
-  DollarSign
+  DollarSign,
+  Edit,
+  Activity,
+  Layers,
+  X
 } from "lucide-react";
 
 import { MapContainer } from "./components/MapContainer";
@@ -109,8 +110,7 @@ export default function App() {
   const [selectedPassenger, setSelectedPassenger] = useState<Passenger | null>(INITIAL_PASSENGERS[0]);
   const [matchDetails, setMatchDetails] = useState<MatchDetails | null>(null);
 
-  // Tab Navigation: 'drivers' | 'passengers' | 'matches'
-  const [activeTab, setActiveTab] = useState<"drivers" | "passengers" | "matches">("matches");
+
 
   // Settings
   const [showSettings, setShowSettings] = useState(false);
@@ -176,6 +176,10 @@ export default function App() {
   // Map coordinate placement state
   const [placementMode, setPlacementMode] = useState<"driver-start" | "driver-end" | "passenger-pickup" | "passenger-drop" | null>(null);
 
+  // Modal drawers visibility
+  const [showDriverDrawer, setShowDriverDrawer] = useState(false);
+  const [showPassengerDrawer, setShowPassengerDrawer] = useState(false);
+
   // Ride Simulation State
   const [simulatingRideId, setSimulatingRideId] = useState<string | null>(null);
   const [simProgress, setSimProgress] = useState(0);
@@ -226,15 +230,19 @@ export default function App() {
     if (placementMode === "driver-start") {
       setNewDriverStart(formattedAddress);
       setNewDriverStartCoord(latlng);
+      setShowDriverDrawer(true);
     } else if (placementMode === "driver-end") {
       setNewDriverEnd(formattedAddress);
       setNewDriverEndCoord(latlng);
+      setShowDriverDrawer(true);
     } else if (placementMode === "passenger-pickup") {
       setNewPassengerPickup(formattedAddress);
       setNewPassengerPickupCoord(latlng);
+      setShowPassengerDrawer(true);
     } else if (placementMode === "passenger-drop") {
       setNewPassengerDrop(formattedAddress);
       setNewPassengerDropCoord(latlng);
+      setShowPassengerDrawer(true);
     }
 
     setPlacementMode(null); // Reset placement mode
@@ -273,7 +281,7 @@ export default function App() {
     setNewDriverStartCoord(null);
     setNewDriverEndCoord(null);
     
-    setActiveTab("matches");
+    setShowDriverDrawer(false);
   };
 
   // Create Passenger
@@ -305,7 +313,7 @@ export default function App() {
     setNewPassengerPickupCoord(null);
     setNewPassengerDropCoord(null);
 
-    setActiveTab("matches");
+    setShowPassengerDrawer(false);
   };
 
   // Compile full detoured route and start simulation loop
@@ -434,43 +442,412 @@ export default function App() {
   return (
     <div className="app-container">
       {/* Sidebar Controls */}
-      <div className="sidebar">
+      <div className="sidebar" style={{ position: "relative" }}>
         {/* Header Title */}
         <div className="sidebar-header">
           <Sparkles className="app-logo" size={24} />
           <h1>Antigravity Carpool Match</h1>
         </div>
 
-        {/* Tab Selection */}
-        <div className="sidebar-tabs">
+        {/* Scrollable Feed Column */}
+        <div className="sidebar-content" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          
+          {/* Active Route Card */}
+          <div className="card active-route-card" style={{ margin: 0 }}>
+            <div className="card-title">
+              <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text-primary)" }}>Active Route</span>
+              <span className="edit-link" onClick={() => {
+                if (selectedPassenger) {
+                  setShowPassengerDrawer(true);
+                } else {
+                  setShowDriverDrawer(true);
+                }
+              }} style={{ fontSize: "0.75rem", color: "var(--color-match)", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontWeight: 600 }}>
+                <Edit size={12} /> Edit
+              </span>
+            </div>
+            
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "16px" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: "4px" }}>
+                  <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--color-match)" }}></div>
+                  <div style={{ width: "2px", height: "24px", backgroundColor: "var(--border-color)", margin: "4px 0" }}></div>
+                  <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--color-driver)" }}></div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  <div>
+                    <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600, letterSpacing: "0.02em" }}>Pickup</div>
+                    <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                      {selectedPassenger ? selectedPassenger.pickupAddress.split(",")[0] : "Select Passenger Pickup"}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600, letterSpacing: "0.02em" }}>Drop-off</div>
+                    <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                      {selectedPassenger ? selectedPassenger.dropAddress.split(",")[0] : "Select Passenger Drop-off"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats row with light blue highlights */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+              <div style={{ backgroundColor: "rgba(14, 165, 233, 0.08)", padding: "8px", borderRadius: "8px", textAlign: "center" }}>
+                <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--color-match)" }}>
+                  {matchDetails ? `${(matchDetails.originalRouteDistance / 1000).toFixed(1)} km` : "--"}
+                </div>
+                <div style={{ fontSize: "0.6rem", color: "var(--text-muted)", marginTop: "2px" }}>Distance</div>
+              </div>
+              <div style={{ backgroundColor: "rgba(99, 102, 241, 0.08)", padding: "8px", borderRadius: "8px", textAlign: "center" }}>
+                <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--color-driver)" }}>
+                  {selectedDriver ? `${selectedDriver.departureTime}` : "--"}
+                </div>
+                <div style={{ fontSize: "0.6rem", color: "var(--text-muted)", marginTop: "2px" }}>ETA</div>
+              </div>
+              <div style={{ backgroundColor: "rgba(16, 185, 129, 0.08)", padding: "8px", borderRadius: "8px", textAlign: "center" }}>
+                <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--color-passenger)" }}>
+                  {selectedDriver ? `${selectedDriver.availableSeats} seats` : "--"}
+                </div>
+                <div style={{ fontSize: "0.6rem", color: "var(--text-muted)", marginTop: "2px" }}>Available</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Workflows side-by-side cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div className="card workflow-card" onClick={() => setShowDriverDrawer(true)} style={{ padding: "14px", cursor: "pointer", borderLeft: "4px solid var(--color-driver)", margin: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                <div style={{ backgroundColor: "var(--color-driver-glow)", color: "var(--color-driver)", padding: "6px", borderRadius: "6px", display: "flex" }}>
+                  <Users size={14} />
+                </div>
+                <span style={{ fontSize: "0.8rem", fontWeight: 700 }}>Driver</span>
+              </div>
+              <p style={{ fontSize: "0.68rem", color: "var(--text-secondary)", lineHeight: "1.3" }}>
+                Publish route, set seats & ETA via Google Routes API
+              </p>
+            </div>
+            
+            <div className="card workflow-card" onClick={() => setShowPassengerDrawer(true)} style={{ padding: "14px", cursor: "pointer", borderLeft: "4px solid var(--color-passenger)", margin: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                <div style={{ backgroundColor: "var(--color-passenger-glow)", color: "var(--color-passenger)", padding: "6px", borderRadius: "6px", display: "flex" }}>
+                  <User size={14} />
+                </div>
+                <span style={{ fontSize: "0.8rem", fontWeight: 700 }}>Passenger</span>
+              </div>
+              <p style={{ fontSize: "0.68rem", color: "var(--text-secondary)", lineHeight: "1.3" }}>
+                Enter stops — matched to nearby encoded polylines
+              </p>
+            </div>
+          </div>
+
+          {/* Route Matching Engine checklist */}
+          <div className="card" style={{ margin: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+              <div style={{ backgroundColor: "rgba(14, 165, 233, 0.1)", color: "var(--color-match)", padding: "6px", borderRadius: "6px", display: "flex" }}>
+                <Activity size={14} />
+              </div>
+              <div>
+                <h4 style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700 }}>Route Matching Engine</h4>
+                <span style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}>PostGIS + Haversine proximity check</span>
+              </div>
+            </div>
+
+            <div className="matching-criteria-list" style={{ gap: "12px" }}>
+              {/* Checkpoint 1: Polyline decoding */}
+              <div className="criteria-item" style={{ gap: "10px" }}>
+                <div style={{
+                  width: "20px",
+                  height: "20px",
+                  borderRadius: "50%",
+                  backgroundColor: selectedDriver ? "var(--color-driver-glow)" : "var(--bg-secondary)",
+                  color: selectedDriver ? "var(--color-driver)" : "var(--text-muted)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "0.7rem",
+                  fontWeight: 700,
+                  flexShrink: 0
+                }}>
+                  {selectedDriver ? "✓" : "1"}
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.78rem", fontWeight: 600 }}>Decode driver's encoded polyline into GPS coords</div>
+                  <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginTop: "1px" }}>
+                    {selectedDriver ? `Successfully parsed ${selectedDriver.routePolyline.length} coordinates` : "No active driver polyline loaded"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Checkpoint 2: Min Proximity */}
+              <div className="criteria-item" style={{ gap: "10px" }}>
+                <div style={{
+                  width: "20px",
+                  height: "20px",
+                  borderRadius: "50%",
+                  backgroundColor: matchDetails && matchDetails.pickupDistance <= proximityThreshold && matchDetails.dropDistance <= proximityThreshold ? "var(--color-passenger-glow)" : matchDetails ? "rgba(239, 68, 68, 0.1)" : "var(--bg-secondary)",
+                  color: matchDetails && matchDetails.pickupDistance <= proximityThreshold && matchDetails.dropDistance <= proximityThreshold ? "var(--color-success)" : matchDetails ? "var(--color-error)" : "var(--text-muted)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "0.7rem",
+                  fontWeight: 700,
+                  flexShrink: 0
+                }}>
+                  {matchDetails && matchDetails.pickupDistance <= proximityThreshold && matchDetails.dropDistance <= proximityThreshold ? "✓" : "2"}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+                    <span style={{ fontSize: "0.78rem", fontWeight: 600 }}>Min. distance from passenger stops to route line</span>
+                    <span style={{ backgroundColor: "rgba(245, 158, 11, 0.1)", color: "#f59e0b", padding: "1px 5px", borderRadius: "4px", fontSize: "0.6rem", fontWeight: 600 }}>
+                      {proximityThreshold}m limit
+                    </span>
+                  </div>
+                  <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginTop: "1px" }}>
+                    {matchDetails 
+                      ? `Pickup: ${matchDetails.pickupDistance.toFixed(0)}m away | Drop-off: ${matchDetails.dropDistance.toFixed(0)}m away` 
+                      : "Awaiting route selection validation"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Checkpoint 3: Sequence check */}
+              <div className="criteria-item" style={{ gap: "10px" }}>
+                <div style={{
+                  width: "20px",
+                  height: "20px",
+                  borderRadius: "50%",
+                  backgroundColor: matchDetails && matchDetails.pickupIndex < matchDetails.dropIndex ? "var(--color-passenger-glow)" : matchDetails ? "rgba(239, 68, 68, 0.1)" : "var(--bg-secondary)",
+                  color: matchDetails && matchDetails.pickupIndex < matchDetails.dropIndex ? "var(--color-success)" : matchDetails ? "var(--color-error)" : "var(--text-muted)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "0.7rem",
+                  fontWeight: 700,
+                  flexShrink: 0
+                }}>
+                  {matchDetails && matchDetails.pickupIndex < matchDetails.dropIndex ? "✓" : "3"}
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.78rem", fontWeight: 600 }}>Verify pickup occurs before drop-off on route</div>
+                  <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginTop: "1px" }}>
+                    {matchDetails 
+                      ? (matchDetails.pickupIndex < matchDetails.dropIndex ? `Correct order (Pickup: index ${matchDetails.pickupIndex.toFixed(1)} < Drop: index ${matchDetails.dropIndex.toFixed(1)})` : "Reverse direction sequence mismatch") 
+                      : "Awaiting route direction validation"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Checkpoint 4: Capacity check */}
+              <div className="criteria-item" style={{ gap: "10px" }}>
+                <div style={{
+                  width: "20px",
+                  height: "20px",
+                  borderRadius: "50%",
+                  backgroundColor: matchDetails && matchDetails.isMatched ? "var(--color-passenger-glow)" : matchDetails ? "rgba(239, 68, 68, 0.1)" : "var(--bg-secondary)",
+                  color: matchDetails && matchDetails.isMatched ? "var(--color-success)" : matchDetails ? "var(--color-error)" : "var(--text-muted)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "0.7rem",
+                  fontWeight: 700,
+                  flexShrink: 0
+                }}>
+                  {matchDetails && matchDetails.isMatched ? "✓" : "4"}
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.78rem", fontWeight: 600 }}>Confirm available seats, accept & notify driver</div>
+                  <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginTop: "1px" }}>
+                    {selectedDriver && selectedPassenger && matchDetails
+                      ? (selectedDriver.availableSeats >= selectedPassenger.seatsNeeded 
+                        ? `Capacity checks OK (${selectedPassenger.seatsNeeded} requested vs ${selectedDriver.availableSeats} available)` 
+                        : "Insufficient seats available in driver's vehicle")
+                      : "Awaiting driver passenger allocation checks"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Matched Passengers List */}
+          <div className="card" style={{ margin: 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <span style={{ fontSize: "0.85rem", fontWeight: 700 }}>Matched Passengers</span>
+              <span style={{ fontSize: "0.65rem", backgroundColor: "rgba(99, 102, 241, 0.08)", color: "var(--color-driver)", padding: "2px 8px", borderRadius: "10px", fontWeight: 600 }}>
+                {selectedDriver ? `${selectedDriver.totalSeats - selectedDriver.availableSeats} / ${selectedDriver.totalSeats} seats` : "0 / 4 seats"}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {passengers.map((psg, idx) => {
+                const isMatchedWithDriver = selectedDriver && matchRide(selectedDriver, psg, { proximityThreshold, detourLimit, timeWindow }).isMatched;
+                const isSelected = selectedPassenger?.id === psg.id;
+                
+                // Assign a mock avatar index
+                const avatarUrl = `https://randomuser.me/api/portraits/thumb/${idx % 2 === 0 ? 'women' : 'men'}/${10 + idx}.jpg`;
+
+                return (
+                  <div 
+                    key={psg.id} 
+                    onClick={() => setSelectedPassenger(psg)}
+                    style={{ 
+                      display: "flex", 
+                      alignItems: "center", 
+                      justifyContent: "space-between", 
+                      padding: "8px 12px", 
+                      borderRadius: "8px", 
+                      backgroundColor: isSelected ? "rgba(14, 165, 233, 0.05)" : "rgba(255, 255, 255, 0.02)",
+                      border: isSelected ? "1px solid var(--color-match)" : "1px solid var(--border-color)",
+                      cursor: "pointer",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <img 
+                        src={avatarUrl} 
+                        alt={psg.name} 
+                        style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} 
+                      />
+                      <div>
+                        <div style={{ fontSize: "0.8rem", fontWeight: 600 }}>{psg.name}</div>
+                        <div style={{ fontSize: "0.62rem", color: "var(--text-secondary)" }}>
+                          {psg.pickupAddress.split(",")[0].substring(0, 15)}... ➔ {psg.dropAddress.split(",")[0].substring(0, 15)}...
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      {isMatchedWithDriver ? (
+                        <span style={{ fontSize: "0.65rem", backgroundColor: "rgba(16, 185, 129, 0.1)", color: "var(--color-success)", padding: "2px 8px", borderRadius: "4px", fontWeight: 700 }}>
+                          Confirmed
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: "0.65rem", backgroundColor: "rgba(245, 158, 11, 0.1)", color: "#f59e0b", padding: "2px 8px", borderRadius: "4px", fontWeight: 700 }}>
+                          Waiting
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Google Cloud APIs status grid */}
+          <div className="card" style={{ padding: "16px 20px", margin: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+              <div style={{ backgroundColor: "rgba(99, 102, 241, 0.1)", color: "var(--color-driver)", padding: "6px", borderRadius: "6px", display: "flex" }}>
+                <Layers size={14} />
+              </div>
+              <span style={{ fontSize: "0.85rem", fontWeight: 700 }}>Google Cloud APIs</span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+              {[
+                { name: "Maps SDK", active: mapProvider === "google" && googleLoaded },
+                { name: "Places API", active: mapProvider === "google" && googleLoaded },
+                { name: "Directions API", active: mapProvider === "google" && googleLoaded },
+                { name: "Distance Matrix", active: mapProvider === "google" && googleLoaded },
+                { name: "Geocoding API", active: mapProvider === "google" && googleLoaded },
+                { name: "Routes API", active: mapProvider === "google" && googleLoaded }
+              ].map((api, idx) => (
+                <div 
+                  key={idx} 
+                  style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: "6px", 
+                    padding: "8px 10px", 
+                    borderRadius: "6px", 
+                    backgroundColor: api.active ? "rgba(16, 185, 129, 0.08)" : "rgba(255, 255, 255, 0.03)",
+                    border: api.active ? "1px solid rgba(16, 185, 129, 0.2)" : "1px solid var(--border-color)",
+                    fontSize: "0.72rem",
+                    fontWeight: 600,
+                    color: api.active ? "var(--text-primary)" : "var(--text-secondary)"
+                  }}
+                >
+                  <div style={{ 
+                    width: "6px", 
+                    height: "6px", 
+                    borderRadius: "50%", 
+                    backgroundColor: api.active ? "var(--color-success)" : "var(--text-muted)" 
+                  }}></div>
+                  {api.name}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Live Tracking Connection Status */}
+          <div className="card" style={{ padding: "16px 20px", margin: 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Activity size={14} style={{ color: "var(--color-match)" }} />
+                <div>
+                  <div style={{ fontSize: "0.85rem", fontWeight: 700 }}>Live Tracking</div>
+                  <div style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}>WebSocket · Every 5-10 sec</div>
+                </div>
+              </div>
+              <span style={{ fontSize: "0.65rem", backgroundColor: simulatingRideId ? "rgba(16, 185, 129, 0.1)" : "rgba(255, 255, 255, 0.08)", color: simulatingRideId ? "var(--color-success)" : "var(--text-muted)", padding: "2px 8px", borderRadius: "10px", fontWeight: 700, display: "flex", alignItems: "center", gap: "4px" }}>
+                <span style={{ width: "4px", height: "4px", borderRadius: "50%", backgroundColor: simulatingRideId ? "var(--color-success)" : "var(--text-muted)", display: "inline-block" }}></span>
+                {simulatingRideId ? "ON" : "OFF"}
+              </span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+              <div style={{ backgroundColor: "rgba(255, 255, 255, 0.02)", border: "1px solid var(--border-color)", padding: "8px", borderRadius: "6px", textAlign: "center" }}>
+                <div style={{ fontSize: "0.75rem", fontWeight: 700 }}>Firebase</div>
+                <div style={{ fontSize: "0.58rem", color: "var(--text-muted)", marginTop: "2px" }}>Realtime DB</div>
+              </div>
+              <div style={{ backgroundColor: "rgba(255, 255, 255, 0.02)", border: "1px solid var(--border-color)", padding: "8px", borderRadius: "6px", textAlign: "center" }}>
+                <div style={{ fontSize: "0.75rem", fontWeight: 700 }}>WebSocket</div>
+                <div style={{ fontSize: "0.58rem", color: "var(--text-muted)", marginTop: "2px" }}>FastAPI</div>
+              </div>
+              <div style={{ backgroundColor: "rgba(255, 255, 255, 0.02)", border: "1px solid var(--border-color)", padding: "8px", borderRadius: "6px", textAlign: "center" }}>
+                <div style={{ fontSize: "0.75rem", fontWeight: 700 }}>ETA</div>
+                <div style={{ fontSize: "0.58rem", color: "var(--text-muted)", marginTop: "2px" }}>Updated Live</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Sticky Footer */}
+        <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border-color)", background: "var(--bg-secondary)", display: "flex", gap: "12px", alignItems: "center", zIndex: 10, flexShrink: 0 }}>
           <button 
-            className={`tab-btn driver ${activeTab === "drivers" ? "active" : ""}`}
-            onClick={() => setActiveTab("drivers")}
+            className="btn-secondary" 
+            onClick={() => setShowSettings(!showSettings)} 
+            style={{ width: "48px", height: "48px", padding: 0, borderRadius: "12px", flexShrink: 0 }}
           >
-            <Users size={16} /> Drivers
+            <Settings size={20} />
           </button>
+          
           <button 
-            className={`tab-btn passenger ${activeTab === "passengers" ? "active" : ""}`}
-            onClick={() => setActiveTab("passengers")}
+            className="btn-primary" 
+            onClick={startSimulation}
+            disabled={simulatingRideId !== null || !matchDetails || !matchDetails.isMatched}
+            style={{ flex: 1, height: "48px" }}
           >
-            <User size={16} /> Passengers
-          </button>
-          <button 
-            className={`tab-btn matches ${activeTab === "matches" ? "active" : ""}`}
-            onClick={() => setActiveTab("matches")}
-          >
-            <Navigation size={16} /> Matching Engine
+            <Play size={16} /> Start Route
           </button>
         </div>
 
-        {/* Sidebar Tabs Content */}
-        <div className="sidebar-content">
-          
-          {/* DRIVER PANEL */}
-          {activeTab === "drivers" && (
-            <div>
-              <h3 style={{ fontSize: "1rem", marginBottom: "16px" }}>Register a Ride Offer</h3>
-              
+        {/* Sliding Driver Drawer Overlay */}
+        {showDriverDrawer && (
+          <div className="drawer-overlay" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", backgroundColor: "var(--bg-secondary)", zIndex: 100, display: "flex", flexDirection: "column" }}>
+            <div className="sidebar-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <Users className="app-logo" size={20} style={{ color: "var(--color-driver)" }} />
+                <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Register a Ride Offer</h3>
+              </div>
+              <button 
+                onClick={() => setShowDriverDrawer(false)}
+                style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex" }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
               <form onSubmit={handleCreateDriver} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                 <div className="form-group">
                   <label className="form-label">Driver Name</label>
@@ -479,7 +856,7 @@ export default function App() {
                     <input 
                       type="text" 
                       className="form-input" 
-                      placeholder="e.g. John Doe"
+                      placeholder="e.g. Rajesh Kumar"
                       value={newDriverName}
                       onChange={(e) => setNewDriverName(e.target.value)}
                       required
@@ -506,7 +883,10 @@ export default function App() {
                       type="button" 
                       className="btn-secondary" 
                       style={{ position: "absolute", right: 8, padding: "4px 8px", width: "auto" }}
-                      onClick={() => setPlacementMode("driver-start")}
+                      onClick={() => {
+                        setShowDriverDrawer(false); // hide drawer temporarily
+                        setPlacementMode("driver-start");
+                      }}
                     >
                       Pin
                     </button>
@@ -549,7 +929,10 @@ export default function App() {
                       type="button" 
                       className="btn-secondary" 
                       style={{ position: "absolute", right: 8, padding: "4px 8px", width: "auto" }}
-                      onClick={() => setPlacementMode("driver-end")}
+                      onClick={() => {
+                        setShowDriverDrawer(false); // hide drawer temporarily
+                        setPlacementMode("driver-end");
+                      }}
                     >
                       Pin
                     </button>
@@ -575,7 +958,7 @@ export default function App() {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Departure</label>
+                    <label className="form-label">Departure Time</label>
                     <div className="input-container">
                       <Clock className="input-icon" size={16} />
                       <input 
@@ -588,7 +971,7 @@ export default function App() {
                     </div>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Seats</label>
+                    <label className="form-label">Available Seats</label>
                     <div className="input-container">
                       <Users className="input-icon" size={16} />
                       <input 
@@ -611,61 +994,41 @@ export default function App() {
                     <input 
                       type="number" 
                       min="0.5" 
-                      max="10" 
+                      max="50" 
                       step="0.1" 
                       className="form-input"
                       value={newDriverPrice}
-                      onChange={(e) => setNewDriverPrice(parseFloat(e.target.value) || 1.50)}
+                      onChange={(e) => setNewDriverPrice(parseFloat(e.target.value) || 15.00)}
                       required
                     />
                   </div>
                 </div>
 
-                <button type="submit" className="btn-primary">
+                <button type="submit" className="btn-primary" style={{ marginTop: "10px" }}>
                   <Plus size={16} /> Publish Ride Offer
                 </button>
               </form>
-
-              <hr style={{ border: "0", height: "1px", background: "var(--border-color)", margin: "24px 0" }} />
-
-              <h4 style={{ fontSize: "0.85rem", textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: "12px" }}>Active Drivers</h4>
-              {drivers.length === 0 ? (
-                <div className="empty-state">No drivers registered yet.</div>
-              ) : (
-                drivers.map((drv) => (
-                  <div 
-                    key={drv.id} 
-                    className={`card ${selectedDriver?.id === drv.id ? "selected" : ""}`}
-                    onClick={() => setSelectedDriver(drv)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <div className="card-title">
-                      <span>{drv.name}</span>
-                      <span className="tag tag-driver">Driver</span>
-                    </div>
-                    <div className="card-meta">
-                      <div className="meta-row">
-                        <MapPin size={12} style={{ color: "var(--color-driver)" }} />
-                        <span style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
-                          {drv.startLocation.split(",")[0]} ➔ {drv.endLocation.split(",")[0]}
-                        </span>
-                      </div>
-                      <div className="form-row" style={{ marginTop: "4px" }}>
-                        <div className="meta-row"><Clock size={12} /> {drv.departureTime}</div>
-                        <div className="meta-row"><Users size={12} /> {drv.availableSeats} / {drv.totalSeats} seats</div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* PASSENGER PANEL */}
-          {activeTab === "passengers" && (
-            <div>
-              <h3 style={{ fontSize: "1rem", marginBottom: "16px" }}>Request a Carpool Ride</h3>
-              
+        {/* Sliding Passenger Drawer Overlay */}
+        {showPassengerDrawer && (
+          <div className="drawer-overlay" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", backgroundColor: "var(--bg-secondary)", zIndex: 100, display: "flex", flexDirection: "column" }}>
+            <div className="sidebar-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <User className="app-logo" size={20} style={{ color: "var(--color-passenger)" }} />
+                <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Request a Carpool Ride</h3>
+              </div>
+              <button 
+                onClick={() => setShowPassengerDrawer(false)}
+                style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex" }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
               <form onSubmit={handleCreatePassenger} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                 <div className="form-group">
                   <label className="form-label">Passenger Name</label>
@@ -674,7 +1037,7 @@ export default function App() {
                     <input 
                       type="text" 
                       className="form-input" 
-                      placeholder="e.g. Alice Smith"
+                      placeholder="e.g. Rahul Verma"
                       value={newPassengerName}
                       onChange={(e) => setNewPassengerName(e.target.value)}
                       required
@@ -701,7 +1064,10 @@ export default function App() {
                       type="button" 
                       className="btn-secondary" 
                       style={{ position: "absolute", right: 8, padding: "4px 8px", width: "auto" }}
-                      onClick={() => setPlacementMode("passenger-pickup")}
+                      onClick={() => {
+                        setShowPassengerDrawer(false); // hide drawer temporarily
+                        setPlacementMode("passenger-pickup");
+                      }}
                     >
                       Pin
                     </button>
@@ -744,7 +1110,10 @@ export default function App() {
                       type="button" 
                       className="btn-secondary" 
                       style={{ position: "absolute", right: 8, padding: "4px 8px", width: "auto" }}
-                      onClick={() => setPlacementMode("passenger-drop")}
+                      onClick={() => {
+                        setShowPassengerDrawer(false); // hide drawer temporarily
+                        setPlacementMode("passenger-drop");
+                      }}
                     >
                       Pin
                     </button>
@@ -799,219 +1168,13 @@ export default function App() {
                   </div>
                 </div>
 
-                <button type="submit" className="btn-primary" style={{ background: "linear-gradient(135deg, var(--color-passenger) 0%, #059669 100%)", boxShadow: "0 4px 12px rgba(16, 185, 129, 0.25)" }}>
+                <button type="submit" className="btn-primary" style={{ marginTop: "10px", background: "linear-gradient(135deg, var(--color-passenger) 0%, #059669 100%)", boxShadow: "0 4px 12px rgba(16, 185, 129, 0.25)" }}>
                   <Plus size={16} /> Request Route Match
                 </button>
               </form>
-
-              <hr style={{ border: "0", height: "1px", background: "var(--border-color)", margin: "24px 0" }} />
-
-              <h4 style={{ fontSize: "0.85rem", textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: "12px" }}>Active Requests</h4>
-              {passengers.length === 0 ? (
-                <div className="empty-state">No requests registered yet.</div>
-              ) : (
-                passengers.map((psg) => (
-                  <div 
-                    key={psg.id} 
-                    className={`card ${selectedPassenger?.id === psg.id ? "selected" : ""}`}
-                    onClick={() => setSelectedPassenger(psg)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <div className="card-title">
-                      <span>{psg.name}</span>
-                      <span className="tag tag-passenger">Passenger</span>
-                    </div>
-                    <div className="card-meta">
-                      <div className="meta-row">
-                        <MapPin size={12} style={{ color: "var(--color-passenger)" }} />
-                        <span style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
-                          {psg.pickupAddress.split(",")[0]} ➔ {psg.dropAddress.split(",")[0]}
-                        </span>
-                      </div>
-                      <div className="form-row" style={{ marginTop: "4px" }}>
-                        <div className="meta-row"><Clock size={12} /> {psg.requestedTime}</div>
-                        <div className="meta-row"><Users size={12} /> {psg.seatsNeeded} seats</div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
             </div>
-          )}
-
-          {/* MATCHING ENGINE DASHBOARD */}
-          {activeTab === "matches" && (
-            <div>
-              <h3 style={{ fontSize: "1rem", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-                <Navigation size={18} style={{ color: "var(--color-match)" }} /> Route Matching Scorecard
-              </h3>
-
-              {!selectedDriver || !selectedPassenger ? (
-                <div className="empty-state">
-                  <AlertTriangle size={24} style={{ color: "var(--color-warning)" }} />
-                  <p>Select both a Driver and a Passenger to run spatial checks.</p>
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  {/* Driver Card Summary */}
-                  <div style={{ background: "rgba(99, 102, 241, 0.05)", border: "1px solid rgba(99, 102, 241, 0.2)", borderRadius: "8px", padding: "12px" }}>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", textTransform: "uppercase" }}>Selected Driver</div>
-                    <div style={{ fontWeight: 700, fontSize: "0.95rem", marginTop: "2px" }}>{selectedDriver.name}</div>
-                    <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "4px" }}>
-                      Route: {selectedDriver.startLocation.split(",")[0]} ➔ {selectedDriver.endLocation.split(",")[0]}
-                    </div>
-                  </div>
-
-                  {/* Passenger Card Summary */}
-                  <div style={{ background: "rgba(16, 185, 129, 0.05)", border: "1px solid rgba(16, 185, 129, 0.2)", borderRadius: "8px", padding: "12px" }}>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", textTransform: "uppercase" }}>Selected Passenger</div>
-                    <div style={{ fontWeight: 700, fontSize: "0.95rem", marginTop: "2px" }}>{selectedPassenger.name}</div>
-                    <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "4px" }}>
-                      Ride: {selectedPassenger.pickupAddress.split(",")[0]} ➔ {selectedPassenger.dropAddress.split(",")[0]}
-                    </div>
-                  </div>
-
-                  {/* Criteria Results */}
-                  {matchDetails && (
-                    <div className="card" style={{ padding: "20px", borderColor: matchDetails.isMatched ? "var(--color-success)" : "var(--color-error)" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
-                        {matchDetails.isMatched ? (
-                          <CheckCircle size={28} style={{ color: "var(--color-success)" }} />
-                        ) : (
-                          <XCircle size={28} style={{ color: "var(--color-error)" }} />
-                        )}
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: "1.1rem" }}>
-                            {matchDetails.isMatched ? "Match Eligible!" : "Not Eligible"}
-                          </div>
-                          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                            Spatial & Temporal evaluation checks
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="matching-criteria-list">
-                        {/* 1. Pickup Proximity */}
-                        <div className="criteria-item">
-                          {matchDetails.pickupDistance <= proximityThreshold ? (
-                            <CheckCircle className="criteria-icon success" size={14} />
-                          ) : (
-                            <XCircle className="criteria-icon error" size={14} />
-                          )}
-                          <div>
-                            <strong>Pickup Proximity:</strong> {(matchDetails.pickupDistance).toFixed(0)}m from route 
-                            <span style={{ color: "var(--text-secondary)", fontSize: "0.75rem", display: "block" }}>
-                              Threshold limit: {proximityThreshold}m
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* 2. Drop Proximity */}
-                        <div className="criteria-item">
-                          {matchDetails.dropDistance <= proximityThreshold ? (
-                            <CheckCircle className="criteria-icon success" size={14} />
-                          ) : (
-                            <XCircle className="criteria-icon error" size={14} />
-                          )}
-                          <div>
-                            <strong>Drop-off Proximity:</strong> {(matchDetails.dropDistance).toFixed(0)}m from route 
-                            <span style={{ color: "var(--text-secondary)", fontSize: "0.75rem", display: "block" }}>
-                              Threshold limit: {proximityThreshold}m
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* 3. Sequence Check */}
-                        <div className="criteria-item">
-                          {matchDetails.pickupIndex < matchDetails.dropIndex ? (
-                            <CheckCircle className="criteria-icon success" size={14} />
-                          ) : (
-                            <XCircle className="criteria-icon error" size={14} />
-                          )}
-                          <div>
-                            <strong>Sequence Order:</strong> {matchDetails.pickupIndex < matchDetails.dropIndex ? "Pickup before Drop (PASS)" : "Pickup after Drop (FAIL)"}
-                            <span style={{ color: "var(--text-secondary)", fontSize: "0.75rem", display: "block" }}>
-                              Pickup Index: {matchDetails.pickupIndex.toFixed(2)} | Drop Index: {matchDetails.dropIndex.toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* 4. Time Check */}
-                        <div className="criteria-item">
-                          {Math.abs(selectedDriver.departureTime.localeCompare(selectedPassenger.requestedTime)) <= 100 ? ( // Simple text check, matchRide does precise min diff
-                            <CheckCircle className="criteria-icon success" size={14} />
-                          ) : (
-                            <XCircle className="criteria-icon error" size={14} />
-                          )}
-                          <div>
-                            <strong>Departure window:</strong> {selectedDriver.departureTime} (drv) vs {selectedPassenger.requestedTime} (psg)
-                            <span style={{ color: "var(--text-secondary)", fontSize: "0.75rem", display: "block" }}>
-                              Time limit window: +/- {timeWindow} mins
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* 5. Seats Check */}
-                        <div className="criteria-item">
-                          {selectedDriver.availableSeats >= selectedPassenger.seatsNeeded ? (
-                            <CheckCircle className="criteria-icon success" size={14} />
-                          ) : (
-                            <XCircle className="criteria-icon error" size={14} />
-                          )}
-                          <div>
-                            <strong>Seats:</strong> Needs {selectedPassenger.seatsNeeded}, Available {selectedDriver.availableSeats}
-                          </div>
-                        </div>
-
-                        {/* 6. Detour limit */}
-                        <div className="criteria-item">
-                          {matchDetails.detourDistance <= detourLimit ? (
-                            <CheckCircle className="criteria-icon success" size={14} />
-                          ) : (
-                            <XCircle className="criteria-icon error" size={14} />
-                          )}
-                          <div>
-                            <strong>Detour Overhead:</strong> {(matchDetails.detourDistance / 1000).toFixed(2)} km
-                            <span style={{ color: "var(--text-secondary)", fontSize: "0.75rem", display: "block" }}>
-                              Max detour limit: {(detourLimit / 1000).toFixed(1)} km
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {matchDetails.isMatched && (
-                        <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px solid var(--border-color)" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                            <div>
-                              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Passenger Est. Fare</div>
-                              <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--color-passenger)", display: "flex", alignItems: "center" }}>
-                                <DollarSign size={20} />{matchDetails.estimatedFare.toFixed(2)}
-                              </div>
-                            </div>
-                            <div>
-                              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", textAlign: "right" }}>Driver Route length</div>
-                              <div style={{ fontSize: "1.1rem", fontWeight: 700, textAlign: "right" }}>
-                                {(matchDetails.originalRouteDistance / 1000).toFixed(1)} km
-                              </div>
-                            </div>
-                          </div>
-
-                          <button 
-                            className="btn-primary"
-                            onClick={startSimulation}
-                            disabled={simulatingRideId !== null}
-                          >
-                            <Play size={16} /> Simulate Carpool Trip
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Map Backing */}
